@@ -2,7 +2,7 @@
 
 ## 1 - Contexte
 
-Dans le cadre de l'épreuve E6 du BTS SIO option SISR (Solutions d'Infrastructure, Systèmes et Réseaux), j'ai mené ce projet sur la plateforme technique de mon établissement, qui reproduit l'environnement d'un système d'information d'entreprise : un domaine Active Directory (bts.lan), des serveurs Linux virtualisés (Zabbix, Vaultwarden, Postfix, DNS...), des postes Windows, des équipements réseau Cisco (routeur et switch) et une baie de stockage TrueNAS.
+J'ai mené ce projet sur la plateforme technique de mon établissement, qui reproduit l'environnement d'un système d'information d'entreprise : un domaine Active Directory (local.lan), des serveurs Linux virtualisés (Zabbix, Vaultwarden, Postfix, DNS...), des postes Windows, des équipements réseau Cisco (routeur et switch) et une baie de stockage TrueNAS.
 
 Avant ce projet, cette infrastructure ne disposait d'aucun outil de supervision centralisé : l'état des serveurs, des postes et des équipements réseau n'était contrôlé que ponctuellement et manuellement, sans historique ni alerte automatique. Une panne, une surcharge (CPU, RAM, disque, réseau) ou un service à l'arrêt ne pouvait donc être détecté qu'a posteriori (généralement lorsqu'un utilisateur signalait un dysfonctionnement) ce qui retarde la résolution des incidents et nuit à la disponibilité du système d'information.
 
@@ -33,7 +33,7 @@ Le système doit permettre de :
 
 ### Exigences techniques et contraintes
 
-- Le serveur de supervision doit être intégré au domaine Active Directory (bts.lan), disposer d'une adresse IP fixe et d'une résolution DNS ;
+- Le serveur de supervision doit être intégré au domaine Active Directory (local.lan), disposer d'une adresse IP fixe et d'une résolution DNS ;
   
 - L'accès aux interfaces web (Zabbix et Grafana) doit être sécurisé en HTTPS, à l'aide de certificats signés par une autorité de certification interne (CA locale) ;
 
@@ -77,7 +77,7 @@ Le serveur a été installé sous Ubuntu, distribution Linux stable, largement d
 
 ### Sécurisation des accès web : PKI interne (CA locale) et HTTPS
 
-Les interfaces web de Zabbix et de Grafana devant rester accessibles uniquement en interne (domaine bts.lan non résolvable publiquement), la mise en place d'une autorité de certification interne a été préférée à un certificat public type Let's Encrypt (qui nécessite une validation par un nom de domaine public). Cette CA locale signe les certificats des deux services, qui sont ensuite servis en HTTPS par Apache (agissant à la fois comme serveur web pour Zabbix et comme reverse-proxy pour Grafana) ce qui garantit la confidentialité et l'intégrité des échanges, et permet de mettre en pratique la gestion d'une infrastructure à clés publiques (PKI).
+Les interfaces web de Zabbix et de Grafana devant rester accessibles uniquement en interne (domaine local.lan non résolvable publiquement), la mise en place d'une autorité de certification interne a été préférée à un certificat public type Let's Encrypt (qui nécessite une validation par un nom de domaine public). Cette CA locale signe les certificats des deux services, qui sont ensuite servis en HTTPS par Apache (agissant à la fois comme serveur web pour Zabbix et comme reverse-proxy pour Grafana) ce qui garantit la confidentialité et l'intégrité des échanges, et permet de mettre en pratique la gestion d'une infrastructure à clés publiques (PKI).
 
 ### Supervision des équipements réseau et du stockage : SNMP
 
@@ -124,7 +124,7 @@ network:
           via: 192.168.40.254
       nameservers:
         search:
-          - bts.lan
+          - local.lan
         addresses:
           - 192.168.20.10
 ```
@@ -142,7 +142,7 @@ ping 192.168.20.10
 ```
 
 ```bash
-nslookup bts.lan
+nslookup local.lan
 ```
 
 ```bash
@@ -166,13 +166,13 @@ packagekit
 Découvrir le domaine AD
 
 ```bash
-realm discover bts.lan
+realm discover local.lan
 ```
 
 Joindre la machine au domaine
 
 ```bash
-sudo realm join bts.lan -U administrateur
+sudo realm join local.lan -U administrateur
 ```
 
 Effectuer la vérification
@@ -194,7 +194,7 @@ realm list
 > Outils
 > DNS
 > Déplier Zone de recherche directe
-> Cliquer droit sur BTS.LAN
+> Cliquer droit sur local.lan
 > Nouvel hôte (A ou AAAA)
 > Nom : zabbix1
 > Adresse IP : 192.168.40.40
@@ -363,13 +363,13 @@ req_extensions = req_ext
 [ dn ]
 C = FR
 O = bts
-CN = zabbix1.bts.lan
+CN = zabbix1.local.lan
 
 [ req_ext ]
 subjectAltName = @alt_names
 
 [ alt_names ]
-DNS.1 = zabbix1.bts.lan
+DNS.1 = zabbix1.local.lan
 IP.1  = 192.168.40.40
 ```
 
@@ -416,7 +416,7 @@ vi /etc/apache2/sites-available/secure.conf
 
 ```bash
 <VirtualHost *:443>
-    ServerName zabbix1.bts.lan
+    ServerName zabbix1.local.lan
     DocumentRoot /usr/share/zabbix/ui
 
     SSLEngine on
@@ -439,8 +439,8 @@ vi /etc/apache2/sites-available/zabbix-http.conf
 
 ```bash
 <VirtualHost *:80>
-    ServerName zabbix1.bts.lan
-    Redirect permanent / https://zabbix1.bts.lan/
+    ServerName zabbix1.local.lan
+    Redirect permanent / https://zabbix1.local.lan/
 </VirtualHost>
 ```
 
@@ -470,7 +470,7 @@ vi /etc/apache2/conf-available/servername.conf
 ```
 
 ```bash
-ServerName zabbix.bts.lan
+ServerName zabbix.local.lan
 ```
 
 
@@ -493,13 +493,13 @@ apt install curl -y
 ```
 
 ```bash
-curl -I http://zabbix1.bts.lan
+curl -I http://zabbix1.local.lan
 ```
 
 Résultat attendu :
 
 HTTP/1.1 301 Moved Permanently
-Location: https://zabbix1.bts.lan/
+Location: https://zabbix1.local.lan/
 
 
 ### 9.5 - Importer le certificat dans Firefox
@@ -518,7 +518,7 @@ Location: https://zabbix1.bts.lan/
 
 ## 10 - Accès à l'interface Zabbix
 
-https://zabbix1.bts.lan
+https://zabbix1.local.lan
 
 
 ```
@@ -744,7 +744,7 @@ snmp-server location "Salle serveur"
 ```
 
 ```bash
-snmp-server contact "admin@bts.lan"
+snmp-server contact "admin@local.lan"
 ```
 
 ``` bash
@@ -1024,7 +1024,7 @@ disponibilité OK
 > Administration
 > Macro
 > Ajouter
-> Dans Macro Coller {$ZABBIX.URL} et dans la valeur mettre https://zabbix1.bts.lan/zabbix
+> Dans Macro Coller {$ZABBIX.URL} et dans la valeur mettre https://zabbix1.local.lan/zabbix
 > Actualiser
 ```
 
@@ -1152,7 +1152,7 @@ systemctl enable grafana-server && systemctl start grafana-server && systemctl s
 ### 15.3 - Configuration du DNS sur l'AD
 
 Dans l'active directory au niveau DNS ajouter un nouvel hôte
-grafana1.bts.lan → 192.168.40.40
+grafana1.local.lan → 192.168.40.40
 
 
 ### 15.4 - Mise en place du HTTPS
@@ -1177,13 +1177,13 @@ ST=Ile-de-France
 L=Paris
 O=bts
 OU=IT
-CN=grafana1.bts.lan
+CN=grafana1.local.lan
 
 [v3_req]
 subjectAltName=@alt_names
 
 [alt_names]
-DNS.1=grafana1.bts.lan
+DNS.1=grafana1.local.lan
 ```
 
 Générer la clé privée
@@ -1240,12 +1240,12 @@ vi /etc/apache2/sites-available/grafana.conf
 ```
 ```bash
 <VirtualHost *:80>
-    ServerName grafana1.bts.lan
-    Redirect permanent / https://grafana1.bts.lan/
+    ServerName grafana1.local.lan
+    Redirect permanent / https://grafana1.local.lan/
 </VirtualHost>
 
 <VirtualHost *:443>
-    ServerName grafana.bts.lan
+    ServerName grafana.local.lan
 
     SSLEngine on
     SSLCertificateFile /etc/ssl/apache/grafana.crt
@@ -1290,8 +1290,8 @@ vi /etc/grafana/grafana.ini
 Modifier ces lignes dans le champs [server] :
 
 ```
-domain = grafana1.bts.lan
-root_url = https://grafana1.bts.lan/
+domain = grafana1.local.lan
+root_url = https://grafana1.local.lan/
 serve_from_sub_path = false
 http_addr = 127.0.0.1
 http_port = 3000
@@ -1329,10 +1329,10 @@ Normalement le certificat d'autorité a déjà été importée dans le navigateu
 Vérifier que HTTPS fonctionne : 
 
 ```bash
-curl https://grafana1.bts.lan
+curl https://grafana1.local.lan
 ```
 
-Accéder à : https://grafana1.bts.lan
+Accéder à : https://grafana1.local.lan
 
 
 
@@ -1414,7 +1414,7 @@ L’utilisateur grafana va permettre à Grafana d’accéder à l’API Zabbix p
 ```
 ```
 > Name : Zabbix-CE
-> URL : https://zabbix1.bts.lan/zabbix/api_jsonrpc.php
+> URL : https://zabbix1.local.lan/zabbix/api_jsonrpc.php
 > Authentication method : No Authentication car Grafana ne s’authentifie pas au niveau HTTP mais via l’API Zabbix plus bas
 > Laisser Décochés : Add self-signed certificate // TLS Client Authentication // Skip TLS certificate validation
 > Auth type : Sélectionner API token
@@ -1730,7 +1730,7 @@ Puis quitter :
 exit
 ```
 
-Aller sur zabbix1.bts.lan
+Aller sur zabbix1.local.lan
 On voit que la base de données est supprimée
 
 
@@ -1767,7 +1767,7 @@ On constate qu'il y a de nouveau des tables donc la restauration a fonctionné.
 
 #### Via l'interface web de Zabbix
 
-Et on peut le voir graphiquement en allant sur zabbix : zabbix1.bts.lan
+Et on peut le voir graphiquement en allant sur zabbix : zabbix1.local.lan
 
 
 
@@ -1848,4 +1848,4 @@ systemctl start zabbix-server
 
 ## 21 - Conclusion
 
-La mise en place de Zabbix et Grafana a permis d'améliorer la supervision, la sécurité et la disponibilité de l'infrastructure. Ce projet m'a permis de mettre en pratique les compétences acquises durant ma formation BTS SIO SISR dans un contexte concret d'administration systèmes et réseaux.
+La mise en place de Zabbix et Grafana a permis d'améliorer la supervision, la sécurité et la disponibilité de l'infrastructure. Ce projet m'a permis de mettre en pratique les compétences acquises durant ma formation SIO SISR dans un contexte concret d'administration systèmes et réseaux.
